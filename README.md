@@ -74,7 +74,7 @@ Constructing a matrix from a 2D list is the easiest method for unit testing, sin
 [   1.000   0.000 ]
 [   0.000   1.000 ]
 ```
-If the 2D list isn't square, a `ValueError` exception is raised.
+If the 2D list isn't rectangular, a `ValueError` exception is raised.
 - Note that the row index in the error message is base 0
 ```python
 >>> Matrix([
