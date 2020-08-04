@@ -6,7 +6,7 @@ Quantum is a library built for optimized matrix operations in Python. For compil
 # Docs
 
 ## Constructor
-The constructor is implemented in the following way:
+The constructor for a matrix is implemented as follows:
 ```python
 Matrix(data, dims: (int, int)) -> Matrix
 ```
@@ -129,24 +129,22 @@ Quantum also provides methods to construct matrices with values from random dist
 The constructor for a matrix from a Gaussian/normal distribution is implemented as follows:
 ```python
 Matrix.gauss(
-        mu: float, 
-        sigma: float, 
+        mu: float = 0, 
+        sigma: float = 1, 
         dims: (int, int), 
         seed: int
     ) -> Matrix
 ```
-Arguments `mu` and `sigma` default to `0` and `1`, respectively.
 
 The constructor for a matrix from a uniform distribution is implemented as follows:
 ```python
 Matrix.uniform(
-        lower: float, 
-        upper: float, 
+        lower: float = 0, 
+        upper: float = 1, 
         dims: (int, int), 
         seed: int
     ) -> Matrix
 ```
-Arguments `lower` and `upper` default to `0` and `1` respectively.
 
 If `lower` > `upper`, a `ValueError` exception is raised.
 ```python
@@ -169,9 +167,9 @@ Every matrix instance provides the following read-only fields:
 ## Matrix methods
 
 - `T` : Returns the transpose of the matrix.
-- > `T` uses a lazy copying method, so the returned matrix shares internal memory with the original until one of them is modified. This also means that getting the transpose of a matrix takes O(1) time. Each matrix also caches its transpose, so calls like `A.T.T.T.T` are inexpensive, and only create 1 new object.
+- > `T` uses a lazy copying method, so the returned matrix shares internal memory with the original until one of them is modified. This also means that getting the transpose of a matrix takes O(1) time. Each matrix also caches its transpose, so calls like `A.T.T.T.T` are inexpensive, and only create 1 new Matrix object.
 - `map(closure)`: Applies the `closure` function to each element in the matrix, modifying it inplace.
-- > `map(closer)` will unbind any existing transpose objects. If the transpose was accessed, this ___will___ make a copy of the internal memory, which may be expensive.
+- > `map(closer)` will unbind any existing transpose objects. If the transpose was accessed prior to calling, the memory is automatically copied. This may be expensive.
 
 ## Number methods
 - `+` : Returns the sum of two matrices
@@ -185,17 +183,17 @@ Every matrix instance provides the following read-only fields:
 
 # Compilation details
 
-To build the module on your machine, your computer must have Python developer tools installed (see below).
+To build the module on your machine, you need to configure a `pypath.h` file so the module can access the Python internals provided by the Python Developer tools.
 
-`pypath.h` allows the module to include a general filepath, so the user doesn't have to modify internal code.
+If you already have the Python developer tools installed on your machine, skip to step 2.
 
 ## 1. Installing Python developer tools
 
 ### **Linux**
-You should be able to install the dev tools with the following command
+You should be able to install the dev tools with the following command:
 
 ```
-sudo apt-get install python3.8-dev
+$ sudo apt-get install python3.8-dev
 ```
 
 ### **OSX**
@@ -207,17 +205,16 @@ Homebrew installation instructions can be found here: [https://docs.python-guide
 
 Use Google.
 
-## 2. Configuring pypath.h
+## 2. Compiling the module
 
-In `include/`, create a file named `pypath.h`
+1. Navigate to the root directory of this repository
 
-**(Linux/OSX):** It may be useful to run the locate command in the terminal to find your `Python.h`
-
+2. Create the `pypath.h` file inside of `include/`
 ```
-locate Python.h
+$ touch include/pypath.h
 ```
 
-Paste the following contents into the file, substituting your include path:
+3. Paste the following contents into the file, substituting your include path:
 
 ```c
 #ifndef PYPATH_H
@@ -227,3 +224,12 @@ Paste the following contents into the file, substituting your include path:
 
 #endif /* PYPATH_H */
 ```
+>  **(Linux/OSX):** It may be useful to run the locate command in the terminal to find your `Python.h`
+> ```
+> $ locate Python.h
+> ```
+4. In your terminal, navigate to the root of this repository and enter the following command:
+```
+$ python3 setup.py build
+```
+If you followed the directions correctly, you should see a Quantum.(device_info).so file show up in the root directory of the repository. Move this file into the same directory as your Python scripts to be able to import it directly.
