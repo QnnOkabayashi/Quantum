@@ -11,6 +11,11 @@ typedef struct MatrixObject MatrixObject;
 typedef bool(*mergefunc)(MatrixObject*, MatrixObject*, MatrixObject*);
 typedef size_t(*idxfunc)(MatrixObject*, size_t);
 
+typedef struct {
+    idxfunc read;   // func(mem_i) -> repr_i
+    idxfunc write;  // func(repr_i) -> mem_i
+} Indexer;
+
 struct MatrixObject {
     PyObject_HEAD
     // C data
@@ -28,10 +33,9 @@ struct MatrixObject {
     PyObject *py_str;
 
     // Iter data
-    idxfunc row_idx;
-    idxfunc col_idx;
+    Indexer *rowmajor;
+    Indexer *colmajor;
 };
-
 static PyMethodDef MatrixMethodDefs[];
 static PyGetSetDef MatrixGetSetDefs[];
 static PyNumberMethods MatrixNumberMethods;
@@ -104,7 +108,11 @@ static bool _matrix_number_scalar_check(PyObject *scalar); // check if scalar is
 static double _matrix_number_scalar_as_double(PyObject *number); // convert scalar to a C double
 
 // matrix indexing methods (internal)
-static size_t _matrix_idx_row_major(MatrixObject *mat, size_t i); // iter for row-major matrices
-static size_t _matrix_idx_col_major(MatrixObject *mat, size_t i); // iter for col-major matrices
+static Indexer row_major;
+static size_t _matrix_read_rowmajor(MatrixObject *mat, size_t i);
+static size_t _matrix_write_rowmajor(MatrixObject *mat, size_t i);
+static Indexer col_major;
+static size_t _matrix_read_colmajor(MatrixObject *mat, size_t i);
+static size_t _matrix_write_colmajor(MatrixObject *mat, size_t i);
 
 #endif /* MATRIX_H */

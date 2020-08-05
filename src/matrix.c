@@ -137,13 +137,15 @@ static PyObject* matrix_map(PyObject *o, PyObject *func) {
     MatrixObject *self = (MatrixObject*) o;
     PyObject *py_data = matrix_get_data(self); // py_data is INCREF'd for caller (this function) automatically
     if (!_matrix_unbind_state_objects(self, true)) return NULL; // without INCREF, py_data could be freed here
-    for (it i = 0; i < self->size; ++i) {
+    idxfunc mem_to_repr = self->rowmajor->read;
+    for (it mem_i = 0; mem_i < self->size; ++mem_i) {
         // in py_data, it's always in row_major order compared to self
-        PyObject *item = PyTuple_GET_ITEM(py_data, i);
+        size_t repr_i = mem_to_repr(self, mem_i);
+        PyObject *item = PyTuple_GET_ITEM(py_data, repr_i);
         PyObject *mapped_item = PyObject_CallFunctionObjArgs(func, item, NULL);
         if (!mapped_item) {
             // TODO: How to add the error to the end of my exception?
-            dtype element = self->data[self->row_idx(self, i)];
+            dtype element = self->data[repr_i];
             char item_str[snprintf(NULL, 0, "%.4f", element)];
             sprintf(item_str, "%.4f", element);
 
@@ -164,8 +166,7 @@ static PyObject* matrix_map(PyObject *o, PyObject *func) {
                 &PyFloat_Type,
                 Py_TYPE(mapped_item));
         }
-        // in data, it's not necessarily row major, so we have to use its row_idx function
-        self->data[self->row_idx(self, i)] = _matrix_number_scalar_as_double(mapped_item);
+        self->data[mem_i] = _matrix_number_scalar_as_double(mapped_item);
     }
     Py_DECREF(py_data); // this function no longer needs py_data, so DECREF
     Py_INCREF(self); // the caller is now referencing self
@@ -232,21 +233,23 @@ static PyObject* matrix_repr(MatrixObject *self) {
         repr_size += snprintf(NULL, 0, repr_data_tail, NULL);
         repr_size += snprintf(NULL, 0, delim, NULL) * (self->size - 1);
         for (it i = 0; i < self->size; ++i) {
-            repr_size += snprintf(NULL, 0, precision, self->data[self->row_idx(self, i)]);
+            // order of elements when accumulating size is irrelevant
+            repr_size += snprintf(NULL, 0, precision, self->data[i]);
         }
         char repr[repr_size];
 
         // populate repr buffer
-        it repr_i = 0;
-        repr_i += sprintf(&repr[repr_i], repr_dims, self->rows, self->cols);
-        repr_i += sprintf(&repr[repr_i], repr_data_head, NULL);
+        it buf_i = 0;
+        buf_i += sprintf(&repr[buf_i], repr_dims, self->rows, self->cols);
+        buf_i += sprintf(&repr[buf_i], repr_data_head, NULL);
 
-        for (it i = 0; true;) {
-            repr_i += sprintf(&repr[repr_i], precision, self->data[self->row_idx(self, i)]);
-            if (++i == self->size) break;
-            repr_i += sprintf(&repr[repr_i], delim, NULL);
+        idxfunc repr_to_mem = self->rowmajor->write;
+        for (it repr_i = 0; true;) {
+            buf_i += sprintf(&repr[buf_i], precision, self->data[repr_to_mem(self, repr_i)]);
+            if (++repr_i == self->size) break;
+            buf_i += sprintf(&repr[buf_i], delim, NULL);
         }
-        repr_i += sprintf(&repr[repr_i], repr_data_tail, NULL);
+        buf_i += sprintf(&repr[buf_i], repr_data_tail, NULL);
 
         self->py_repr = PyUnicode_FromString(repr);
 
@@ -273,19 +276,20 @@ static PyObject* matrix_str(MatrixObject *self) {
         char str[str_size];
 
         // populate str buffer
-        it str_i = 0;
+        it buf_i = 0;
         it data_i = 0;
+        idxfunc mem_to_repr = self->rowmajor->read;
         for (it row_i = 0; true;) {
-            str_i += sprintf(&str[str_i], str_edge_head, NULL);
+            buf_i += sprintf(&str[buf_i], str_edge_head, NULL);
             for (it col_i = 0; true;) {
-                dtype val = self->data[self->row_idx(self, data_i++)];
-                str_i += sprintf(&str[str_i], (val >= 1000 ? "%7.1e" : "%7.3f"), val);
+                dtype val = self->data[mem_to_repr(self, data_i++)];
+                buf_i += sprintf(&str[buf_i], (val >= 1000 ? "%7.1e" : "%7.3f"), val);
                 if (++col_i == self->cols) break;
-                str_i += sprintf(&str[str_i], delim, NULL);
+                buf_i += sprintf(&str[buf_i], delim, NULL);
             }
-            str_i += sprintf(&str[str_i], str_edge_tail, NULL);
+            buf_i += sprintf(&str[buf_i], str_edge_tail, NULL);
             if (++row_i == self->rows) break;
-            str_i += sprintf(&str[str_i], "\n");
+            buf_i += sprintf(&str[buf_i], "\n");
         }
 
         self->py_str = PyUnicode_FromString(str);
@@ -311,8 +315,8 @@ static PyObject* matrix_new(PyTypeObject *type, PyObject *args, PyObject *kwds) 
     self->py_repr = NULL;
     self->py_str = NULL;
 
-    self->row_idx = _matrix_idx_row_major;
-    self->col_idx = _matrix_idx_col_major;
+    self->rowmajor = &row_major;
+    self->colmajor = &col_major;
     return (PyObject*) self;
 }
 
@@ -428,8 +432,8 @@ static int _matrix_init_copy_matrix(MatrixObject *self, PyObject *py_matrix) {
     self->size = src->size;
     if (!_matrix_alloc_data(self)) return -1;
     memcpy(self->data, src->data, sizeof(dtype) * self->size);
-    self->row_idx = src->row_idx;
-    self->col_idx = src->col_idx;
+    self->rowmajor = src->rowmajor;
+    self->colmajor = src->colmajor;
     return 0;
 }
 
@@ -552,8 +556,6 @@ static int _matrix_init_from_2d_list(MatrixObject *self, PyObject *py_matrix, Py
         }
     }
     return 0;
-
-    // build matrix here
 }
 
 static bool _matrix_alloc_data(MatrixObject *self) {
@@ -593,8 +595,10 @@ static bool _matrix_not_equal(MatrixObject *mat1, MatrixObject *mat2) {
     if (mat1->size != mat2->size) return true;
     if (mat1->rows != mat2->rows || mat1->cols != mat2->cols) return true;
 
+    idxfunc repr_to_mem1 = mat1->rowmajor->write;
+    idxfunc repr_to_mem2 = mat2->rowmajor->write;
     for (it i = 0; i < mat1->size; ++i) {
-        if (mat1->data[mat1->row_idx(mat1, i)] != mat2->data[mat2->row_idx(mat2, i)]) return true;
+        if (mat1->data[repr_to_mem1(mat1, i)] != mat2->data[repr_to_mem2(mat2, i)]) return true;
     }
     return false;
 }
@@ -650,18 +654,19 @@ static PyObject* matrix_get_cols(MatrixObject *self) {
 }
 
 static PyObject* matrix_get_data(MatrixObject *self) {
+    idxfunc repr_to_mem = self->rowmajor->write;
     if (!self->py_data) {
         self->py_data = PyTuple_New(self->size);
         if (!self->py_data) return PyErr_NoMemory();
 
-        for (it i = 0; i < self->size; ++i) {
-            PyObject *item = PyFloat_FromDouble(self->data[self->row_idx(self, i)]);
+        for (it repr_i = 0; repr_i < self->size; ++repr_i) {
+            PyObject *item = PyFloat_FromDouble(self->data[repr_to_mem(self, repr_i)]);
             if (!item) return NULL;
-            PyTuple_SET_ITEM(self->py_data, i, item);
+            PyTuple_SET_ITEM(self->py_data, repr_i, item);
         }
         Py_INCREF(self->py_data); // self is referencing py_data
     }
-    Py_INCREF(self->py_data); // the caller is referencing py_data
+    Py_INCREF(self->py_data); // caller is referencing py_data
     return self->py_data;
 }
 
@@ -680,8 +685,8 @@ static PyObject* matrix_get_transpose(MatrixObject *self) {
         t->py_repr = NULL;
         t->py_str = NULL;
 
-        t->row_idx = self->col_idx;
-        t->col_idx = self->row_idx;
+        t->rowmajor = self->colmajor;
+        t->colmajor = self->rowmajor;
 
         self->transpose = (PyObject*) t;
 
@@ -762,13 +767,15 @@ static PyObject* matrix_number_matmul(PyObject *obj1, PyObject *obj2) {
 
     // matrix multiplication algorithm
     dtype *res_ptr = res->data;
+    idxfunc mat1_indexer = mat1->rowmajor->read;
+    idxfunc mat2_indexer = mat2->colmajor->read;
     for (it row_i = 0; row_i < res->rows; ++row_i) {
         for (it col_i = 0; col_i < res->cols; ++col_i) {
             *res_ptr = 0;
             for (it i = 0; i < mat1->cols; ++i) {
                 *res_ptr += 
-                    mat1->data[mat1->row_idx(mat1, row_i * mat1->cols + i)] * 
-                    mat2->data[mat2->col_idx(mat2, col_i * mat2->rows + i)];
+                    mat1->data[mat1_indexer(mat1, row_i * mat1->cols + i)] * 
+                    mat2->data[mat2_indexer(mat2, col_i * mat2->rows + i)];
             }
             ++res_ptr;
         }
@@ -798,8 +805,9 @@ static PyObject* _matrix_number_scalar_mul(MatrixObject *mat, double scalar) {
     MatrixObject *res = (MatrixObject*) _matrix_create_from_dims(mat->rows, mat->cols);
     if (!res) return NULL;
 
+    idxfunc mem_to_repr = mat->rowmajor->read;
     for (it i = 0; i < res->size; ++i) {
-        res->data[i] = mat->data[mat->row_idx(mat, i)] * scalar;
+        res->data[i] = mat->data[mem_to_repr(mat, i)] * scalar;
     }
     return (PyObject*) res;
 }
@@ -814,49 +822,58 @@ static PyObject* _matrix_number_scalar_div(MatrixObject *mat, double scalar) {
     MatrixObject *res = (MatrixObject*) _matrix_create_from_dims(mat->rows, mat->cols);
     if (!res) return NULL;
 
+    idxfunc mem_to_repr = mat->rowmajor->read;
     for (it i = 0; i < res->size; ++i) {
-        res->data[i] = mat->data[mat->row_idx(mat, i)] / scalar;
+        res->data[i] = mat->data[mem_to_repr(mat, i)] / scalar;
     }
     return (PyObject*) res;
 }
 
 static bool _matrix_number_merge_add(MatrixObject *mat1, MatrixObject *mat2, MatrixObject *mat3) {
+    idxfunc mem_to_repr1 = mat1->rowmajor->read;
+    idxfunc mem_to_repr2 = mat2->rowmajor->read;
     for (it i = 0; i < mat1->size; ++i) {
         mat3->data[i] = 
-            mat1->data[mat1->row_idx(mat1, i)] + 
-            mat2->data[mat2->row_idx(mat2, i)];
+            mat1->data[mem_to_repr1(mat1, i)] + 
+            mat2->data[mem_to_repr2(mat2, i)];
     }
     return true;
 }
 
 static bool _matrix_number_merge_sub(MatrixObject *mat1, MatrixObject *mat2, MatrixObject *mat3) {
+    idxfunc mem_to_repr1 = mat1->rowmajor->read;
+    idxfunc mem_to_repr2 = mat2->rowmajor->read;
     for (it i = 0; i < mat1->size; ++i) {
         mat3->data[i] = 
-            mat1->data[mat1->row_idx(mat1, i)] - 
-            mat2->data[mat2->row_idx(mat2, i)];
+            mat1->data[mem_to_repr1(mat1, i)] - 
+            mat2->data[mem_to_repr2(mat2, i)];
     }
     return true;
 }
 
 static bool _matrix_number_merge_mul(MatrixObject *mat1, MatrixObject *mat2, MatrixObject *mat3) {
+    idxfunc mem_to_repr1 = mat1->rowmajor->read;
+    idxfunc mem_to_repr2 = mat2->rowmajor->read;
     for (it i = 0; i < mat1->size; ++i) {
         mat3->data[i] = 
-            mat1->data[mat1->row_idx(mat1, i)] * 
-            mat2->data[mat2->row_idx(mat2, i)];
+            mat1->data[mem_to_repr1(mat1, i)] * 
+            mat2->data[mem_to_repr2(mat2, i)];
     }
     return true;
 }
 
 static bool _matrix_number_merge_div(MatrixObject *mat1, MatrixObject *mat2, MatrixObject *mat3) {
+    idxfunc mem_to_repr1 = mat1->rowmajor->read;
+    idxfunc mem_to_repr2 = mat2->rowmajor->read;
     for (it i = 0; i < mat1->size; ++i) {
-        dtype divisor = mat2->data[mat2->row_idx(mat2, i)];
+        dtype divisor = mat2->data[mem_to_repr2(mat2, i)];
         if (divisor == 0) {
             PyErr_Format(
                 PyExc_ZeroDivisionError,
                 "divisor matrix cannot contain 0");
             return false;
         }
-        mat3->data[i] = mat1->data[mat1->row_idx(mat1, i)] / divisor;
+        mat3->data[i] = mat1->data[mem_to_repr1(mat1, i)] / divisor;
     }
     return true;
 }
@@ -873,10 +890,28 @@ static double _matrix_number_scalar_as_double(PyObject *number) {
 }
 
 // matrix indexing methods (internal)
-static size_t _matrix_idx_row_major(MatrixObject *mat, size_t i) {
+static Indexer row_major = {
+    .read = _matrix_read_rowmajor,
+    .write = _matrix_write_rowmajor,
+};
+
+static size_t _matrix_read_rowmajor(MatrixObject *mat, size_t i) {
     return i;
 }
 
-static size_t _matrix_idx_col_major(MatrixObject *mat, size_t i) {
+static size_t _matrix_write_rowmajor(MatrixObject *mat, size_t i) {
+    return i;
+}
+
+static Indexer col_major = {
+    .read =  _matrix_read_colmajor,
+    .write = _matrix_write_colmajor,
+};
+
+static size_t _matrix_read_colmajor(MatrixObject *mat, size_t i) {
+    return (i * mat->cols) + (i / mat->rows) * (1 - mat->size);
+}
+
+static size_t _matrix_write_colmajor(MatrixObject *mat, size_t i) {
     return (i * mat->rows) + (i / mat->cols) * (1 - mat->size);
 }
