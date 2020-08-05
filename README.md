@@ -170,7 +170,7 @@ Every Matrix object provides the following read-only fields:
 
 - `T` : Returns the transpose of the matrix.
     - `T` uses a lazy copying method, so the returned matrix shares internal memory with the original until one of them is modified. This also means that getting the transpose of a matrix takes O(1) time. Each matrix also caches its transpose, so calls like `A.T.T.T.T` are inexpensive, and only create 1 new Matrix object.
-- `map(closure)`: Applies the `closure` function to each element in the matrix, modifying it inplace.
+- `map(closure: Function[[number], number])`: Applies the `closure` function to each element in the matrix, modifying it inplace.
     - If the matrix has a cached transpose `Matrix` object, `map(closure)` will remove from its cache and also copy the data to a new array.
 
 ## Number methods
