@@ -43,7 +43,7 @@ Leaving the second dim empty will default to 1 column.
 ```
 ### Constructing a Matrix from `List[number]`
 
-Constructing a matrix from a list without providing `dims` returns a column vector representation.
+Constructing a Matrix from a list without providing `dims` returns a column vector representation.
 ```python
 >>> Matrix([1,2,3,4])
 [   1.000 ]
@@ -51,7 +51,7 @@ Constructing a matrix from a list without providing `dims` returns a column vect
 [   3.000 ]
 [   4.000 ]
 ```
-Providing `dims` will return a matrix of that shape, storing list values in row-major order.
+Providing `dims` will return a Matrix of that shape, storing list values in row-major order.
 
 ```python
 >>> Matrix([1,2,3,4], dims=(2,2))
@@ -67,7 +67,7 @@ ValueError: matrix with dims=(2, 2) cannot be created from 3 value(s)
 ```
 ### Constructing a Matrix from `List[List[number]]`
 
-Constructing a matrix from a 2D list is the easiest method for unit testing, since `dims` is optional.
+Constructing a Matrix from a 2D list is the easiest method for unit testing, since `dims` is optional.
 ```python
 >>> Matrix([
 ...     [1,0],
@@ -77,11 +77,11 @@ Constructing a matrix from a 2D list is the easiest method for unit testing, sin
 [   0.000   1.000 ]
 ```
 If the 2D list isn't rectangular, a `ValueError` exception is raised.
-- Note that the row index in the error message is base 0
+- Note that the error message uses zero based indexing to indicate the row.
 ```python
 >>> Matrix([
 ...     [1,2,3],
-...     [1,2]
+...     [1,2]   # <- should have 3 elements
 ... ])
 ```
 ```
@@ -111,7 +111,7 @@ ValueError: dims of given 2D array (2, 2) don't match dims specified (3, 2)
 
 ### Constructing a Matrix from `Matrix`
 
-Constructing a Matrix from another Matrix will simply copy the contents. 
+Constructing a Matrix from another matrix will simply copy the contents. 
 The `dims` argument is ignored in this case.
 ```python
 >>> A = Matrix(5, dims=(2,3))
@@ -160,7 +160,7 @@ ValueError: lower bound cannot be greater than upper bound: (1.000, 0.000)
 
 ## Matrix fields
 
-Every matrix instance provides the following read-only fields:
+Every Matrix object provides the following read-only fields:
 
 - `rows`: The number of rows in the matrix
 - `cols`: The number of columns in the matrix
@@ -171,7 +171,7 @@ Every matrix instance provides the following read-only fields:
 - `T` : Returns the transpose of the matrix.
     - `T` uses a lazy copying method, so the returned matrix shares internal memory with the original until one of them is modified. This also means that getting the transpose of a matrix takes O(1) time. Each matrix also caches its transpose, so calls like `A.T.T.T.T` are inexpensive, and only create 1 new Matrix object.
 - `map(closure)`: Applies the `closure` function to each element in the matrix, modifying it inplace.
-    - `map(closer)` will unbind any existing transpose objects. If the transpose was accessed prior to calling, the memory is automatically copied. This may be expensive.
+    - If the matrix has a cached transpose `Matrix` object, `map(closure)` will remove from its cache and also copy the data to a new array.
 
 ## Number methods
 - `+` : Returns the sum of two matrices
@@ -220,7 +220,7 @@ $ touch include/pypath.h
 
 3. Locate the path to your `Python.h`. 
 
-    - If you're using UNIX based system, the following command my be useful:
+    - If you're using UNIX based system, the following command may be useful:
 ```
 $ locate Python.h
 ```
