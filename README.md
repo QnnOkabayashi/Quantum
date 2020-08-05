@@ -1,12 +1,12 @@
-# Quantum Matrix Library
+# Quantum
 #### By Quinn Okabayashi
+Quantum is a Python library written purely in C to efficiently compute matrix operations. 
 
-Quantum is a library built for optimized matrix operations in Python. For compilation details, see bottom.
+For compilation details, see bottom.
 
 # Docs
-
 ## Constructor
-The constructor for a matrix is implemented as follows:
+The Matrix constructor is implemented as follows:
 ```python
 Matrix(data, dims: (int, int)) -> Matrix
 ```
@@ -16,11 +16,13 @@ The `data` argument can be one of the following types:
 3. `List[List[number]]`
 4. `Matrix`
 
+Where `number` is shorthand for `Union[int, float]`.
+
 The `dims` argument is optional.
 
-### Constructing a matrix from `number`
+### Constructing a Matrix from `number`
 
-Constructing a matrix from only a constant defaults to a 1x1 matrix.
+Constructing a matrix from a constant defaults to a 1x1 matrix.
 ```python
 >>> Matrix(0)
 [   0.000 ]
@@ -39,7 +41,7 @@ Leaving the second dim empty will default to 1 column.
 [   0.000 ]
 [   0.000 ]
 ```
-### Constructing a matrix from `List[number]`
+### Constructing a Matrix from `List[number]`
 
 Constructing a matrix from a list without providing `dims` returns a column vector representation.
 ```python
@@ -63,7 +65,7 @@ If the list length doesn't match the product of `dims`, a `ValueError` exception
 ```
 ValueError: matrix with dims=(2, 2) cannot be created from 3 value(s)
 ```
-### Constructing a matrix from `List[List[number]]`
+### Constructing a Matrix from `List[List[number]]`
 
 Constructing a matrix from a 2D list is the easiest method for unit testing, since `dims` is optional.
 ```python
@@ -107,7 +109,7 @@ If `dims` is provided but doesn't match the shape of the 2D list, a `ValueError`
 ValueError: dims of given 2D array (2, 2) don't match dims specified (3, 2)
 ```
 
-### Constructing a matrix from `Matrix`
+### Constructing a Matrix from `Matrix`
 
 Constructing a Matrix from another Matrix will simply copy the contents. 
 The `dims` argument is ignored in this case.
@@ -167,18 +169,20 @@ Every matrix instance provides the following read-only fields:
 ## Matrix methods
 
 - `T` : Returns the transpose of the matrix.
-- > `T` uses a lazy copying method, so the returned matrix shares internal memory with the original until one of them is modified. This also means that getting the transpose of a matrix takes O(1) time. Each matrix also caches its transpose, so calls like `A.T.T.T.T` are inexpensive, and only create 1 new Matrix object.
+    - `T` uses a lazy copying method, so the returned matrix shares internal memory with the original until one of them is modified. This also means that getting the transpose of a matrix takes O(1) time. Each matrix also caches its transpose, so calls like `A.T.T.T.T` are inexpensive, and only create 1 new Matrix object.
 - `map(closure)`: Applies the `closure` function to each element in the matrix, modifying it inplace.
-- > `map(closer)` will unbind any existing transpose objects. If the transpose was accessed prior to calling, the memory is automatically copied. This may be expensive.
+    - `map(closer)` will unbind any existing transpose objects. If the transpose was accessed prior to calling, the memory is automatically copied. This may be expensive.
 
 ## Number methods
 - `+` : Returns the sum of two matrices
 - `-` : Returns the difference of two matrices
-- `*` : Returns the element-wise product of two matrices. Can also use a scalar.
-- `/` : Returns the element-wise quotient of two matrices. Can also use a scalar as the divisor.
+- `*` : Returns the element-wise product of two matrices
+    - A scalar can also be used as one argument
+- `/` : Returns the element-wise quotient of two matrices
+    - A scalar can also be used as the divisor
 - `@` : Returns the matrix product of two matrices.
-- `==` : Returns `True` if the matrices are equivalent, else `False`.
-- `!=` : Returns `True` if the matrices are not equivalent, else `False`.
+- `==` : Returns `True` if the matrices are equivalent, otherwise `False`.
+- `!=` : Returns `True` if the matrices are not equivalent, otherwise `False`.
 
 
 # Compilation details
@@ -214,8 +218,14 @@ Use Google.
 $ touch include/pypath.h
 ```
 
-3. Paste the following contents into the file, substituting your include path:
+3. Locate the path to your `Python.h`. 
 
+    - If you're using UNIX based system, the following command my be useful:
+```
+$ locate Python.h
+```
+
+3. Paste the following contents into the file, substituting your include path:
 ```c
 #ifndef PYPATH_H
 #define PYPATH_H
@@ -224,12 +234,10 @@ $ touch include/pypath.h
 
 #endif /* PYPATH_H */
 ```
->  **(Linux/OSX):** It may be useful to run the locate command in the terminal to find your `Python.h`
-> ```
-> $ locate Python.h
-> ```
+
 4. In your terminal, navigate to the root of this repository and enter the following command:
 ```
 $ python3 setup.py build
 ```
 If you followed the directions correctly, you should see a Quantum.(device_info).so file show up in the root directory of the repository. Move this file into the same directory as your Python scripts to be able to import it directly.
+
