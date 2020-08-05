@@ -14,10 +14,13 @@ if os.path.isfile(build_path):
             folder_path = os.path.join(build_path, folder)
             for archive in os.listdir(folder_path):
                 os.remove(os.path.join(folder_path, archive))
+else:
+    # user doesn't have build/ directory yet
+    pass
 
 # Compile extension
 module = Extension(module_name, sources=["src/quantum.c"])
-setup(name="Quantum Matrix",
+setup(name=module_name,
       version="1.0",
       author="Quinn Okabayashi",
       author_email="qokabay1@swarthmore.edu",
@@ -37,4 +40,4 @@ for folder in os.listdir(build_path):
         folder_path = os.path.join(build_path, folder)
         for archive in os.listdir(folder_path):
             archive_path = os.path.join(folder_path, archive)
-            shutil.move(archive_path, os.path.join(dest_path))
+            shutil.move(archive_path, dest_path)
