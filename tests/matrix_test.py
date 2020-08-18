@@ -41,6 +41,18 @@ def testCopyConstructor() -> bool:
     )
 
 
+def testConsistentSeededRandomGenerationWithCachedGauss() -> bool:
+    # the gauss generator generates 2 values at a time and caches the second for next use.
+    # this test ensures that the cache is cleared between seeds
+    dummy = Matrix.gauss()
+    m = Matrix.gauss(mu=0, sigma=0.2, dims=(5,), seed=1)
+    x = Matrix.gauss(mu=0, sigma=0.2, dims=(5,), seed=1)
+    return isPassing(
+        expected=m,
+        received=x
+    )
+
+
 def testConsistentSeededRandomGeneration() -> bool:
     m = Matrix.gauss(mu=0, sigma=0.2, dims=(5,), seed=1)
     x = Matrix.gauss(mu=0, sigma=0.2, dims=(5,), seed=1)

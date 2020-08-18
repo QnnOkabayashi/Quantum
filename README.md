@@ -1,8 +1,10 @@
 # Quantum
-#### By Quinn Okabayashi
-Quantum is a Python library written purely in C to efficiently compute matrix operations. 
+### By Quinn Okabayashi
+Quantum is a Python extension written in C to efficiently compute matrix operations. 
 
-For compilation details, see bottom.
+This library must be built from source, but future plans involve providing prebuilt binaries through pip.
+
+See bottom for build details.
 
 # Docs
 ## Constructor
@@ -20,7 +22,9 @@ Where `number` is shorthand for `Union[int, float]`.
 
 The `dims` argument is optional.
 
-### Constructing a Matrix from `number`
+___
+<details>
+<summary>Constructing a Matrix from <code>number</code></summary>
 
 Constructing a matrix from a constant defaults to a 1x1 matrix.
 ```python
@@ -41,9 +45,13 @@ Leaving the second dim empty will default to 1 column.
 [   0.000 ]
 [   0.000 ]
 ```
-### Constructing a Matrix from `List[number]`
+</details>
 
-Constructing a Matrix from a list without providing `dims` returns a column vector representation.
+___
+<details>
+<summary>Constructing a Matrix from <code>List[number]</code></summary>
+
+Constructing a Matrix from a list without providing `dims` returns the column vector representation.
 ```python
 >>> Matrix([1,2,3,4])
 [   1.000 ]
@@ -65,7 +73,11 @@ If the list length doesn't match the product of `dims`, a `ValueError` exception
 ```
 ValueError: matrix with dims=(2, 2) cannot be created from 3 value(s)
 ```
-### Constructing a Matrix from `List[List[number]]`
+</details>
+
+___
+<details>
+<summary>Constructing a Matrix from <code>List[List[number]]</code></summary>
 
 Constructing a Matrix from a 2D list is the easiest method for unit testing, since `dims` is optional.
 ```python
@@ -81,7 +93,7 @@ If the 2D list isn't rectangular, a `ValueError` exception is raised.
 ```python
 >>> Matrix([
 ...     [1,2,3],
-...     [1,2]   # <- should have 3 elements
+...     [1,2]  # should have 3 elements
 ... ])
 ```
 ```
@@ -109,7 +121,11 @@ If `dims` is provided but doesn't match the shape of the 2D list, a `ValueError`
 ValueError: dims of given 2D array (2, 2) don't match dims specified (3, 2)
 ```
 
-### Constructing a Matrix from `Matrix`
+</details>
+
+___
+<details>
+<summary>Constructing a Matrix from <code>Matrix</code></summary>
 
 Constructing a Matrix from another matrix will simply copy the contents. 
 The `dims` argument is ignored in this case.
@@ -119,7 +135,9 @@ The `dims` argument is ignored in this case.
 [   5.000   5.000   5.000 ]
 [   5.000   5.000   5.000 ]
 ```
+</details>
 
+___
 ## Constructing from random distributions
 
 Quantum also provides methods to construct matrices with values from random distributions.
@@ -128,7 +146,11 @@ Quantum also provides methods to construct matrices with values from random dist
 - Dimensions not provided by `dims` default to `1`.
 - If `seed` is not provided, a time-based seed is used.
 
-The constructor for a matrix from a Gaussian/normal distribution is implemented as follows:
+___
+<details>
+<summary>Constructing a matrix from a Gaussian distribution</summary>
+
+The constructor for a matrix from a Gaussian distribution is implemented as follows:
 ```python
 Matrix.gauss(
         mu: float = 0, 
@@ -137,6 +159,18 @@ Matrix.gauss(
         seed: int
     ) -> Matrix
 ```
+
+Example:
+```python
+>>> Matrix.gauss(sigma=0.2, dims=(2,3), seed=1)
+[   0.108  -0.169   0.074 ]
+[  -0.350   0.113  -0.070 ]
+```
+</details>
+
+___
+<details>
+<summary>Constructing a matrix from a uniform distribution</summary>
 
 The constructor for a matrix from a uniform distribution is implemented as follows:
 ```python
@@ -156,38 +190,56 @@ If `lower` > `upper`, a `ValueError` exception is raised.
 ValueError: lower bound cannot be greater than upper bound: (1.000, 0.000)
 ```
 
+Example:
+```python
+>>> Matrix.uniform(lower=-1, upper=1, dims=(2,3), seed=1)
+[   0.680  -0.211   0.566 ]
+[   0.597   0.823  -0.605 ]
+```
+</details>
 
-
+___
 ## Matrix fields
 
 Every Matrix object provides the following read-only fields:
 
-- `rows`: The number of rows in the matrix
+- `rows`: The integer number of rows in the matrix
 - `cols`: The number of columns in the matrix
-- `data`: An array of all the matrix elements, in row-major order
+- `data`: A list of all the matrix elements, in row-major order
 
+___
 ## Matrix methods
 
-- `T` : Returns the transpose of the matrix.
-    - `T` uses a lazy copying method, so the returned matrix shares internal memory with the original until one of them is modified. This also means that getting the transpose of a matrix takes O(1) time. Each matrix also caches its transpose, so calls like `A.T.T.T.T` are inexpensive, and only create 1 new Matrix object.
-- `map(closure: Function[[number], number])`: Applies the `closure` function to each element in the matrix, modifying it inplace.
-    - If the matrix has a cached transpose `Matrix` object, `map(closure)` will remove from its cache and also copy the data to a new array.
+<details>
+<summary><code>T</code> : Returns the transpose of the matrix.</summary>
 
+* `T` uses a lazy copying method, so the returned matrix shares internal memory with the original until one of them is modified. This also means that getting the transpose of a matrix takes O(1) time. Each matrix also caches its transpose, so calls like `A.T.T.T.T` are inexpensive, and only create 1 new Matrix object.
+
+</details>
+
+<details>
+<summary><code>map(closure: Function[[number], number])</code> Applies the <code>closure</code> function to each element in the matrix, modifying it inplace.</summary>
+
+- If the matrix has a cached transpose `Matrix` object, `map()` will remove from its cache and also copy the data to a new array.
+
+</details>    
+
+___
 ## Number methods
 - `+` : Returns the sum of two matrices
 - `-` : Returns the difference of two matrices
 - `*` : Returns the element-wise product of two matrices
-    - A scalar can also be used as one argument
+    - A scalar can also be used as one argument for scalar multiplication
 - `/` : Returns the element-wise quotient of two matrices
-    - A scalar can also be used as the divisor
+    - A scalar can also be used as the divisor for scalar division
 - `@` : Returns the matrix product of two matrices.
 - `==` : Returns `True` if the matrices are equivalent, otherwise `False`.
 - `!=` : Returns `True` if the matrices are not equivalent, otherwise `False`.
 
+___
+# Build instructions
 
-# Compilation details
-
-To build the module on your machine, you need to configure a `pypath.h` file so the module can access the Python internals provided by the Python Developer tools.
+To compile the module on your machine, you need to configure a `pypath.h` file so the module can access the Python internals provided by the Python Developer tools.
 
 If you already have the Python developer tools installed on your machine, skip to step 2.
 
